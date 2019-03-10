@@ -1,0 +1,1235 @@
+---
+title: "Customer Centricity vs Operational Excellence"
+output:
+  rmdformats::material:
+    highlight: kate
+    self_contained: true
+    code_folding: hide
+    thumbnails: false
+    gallery: true
+    cards: false
+    df_print: kable
+---
+<font size="5"> <span style="color:#2f4f4f">
+Harish M  
+A deep dive into the transactional data of a retail chain
+</span> </font>  
+
+<!-- Custom CSS styles -->
+<style>
+div.grey { background-color:#eeeeee; 
+border-radius: 5px; 
+padding: 20px;}
+
+.collapsibleHn {
+  background-color: #eeeeee;
+  color: #2f4f4f;
+  cursor: pointer;
+  width: 100%;
+  border: none;
+  padding: 18px;
+  text-align: left;
+  font-size: 20px;
+}
+.activeHn, .collapsibleHn:hover {
+  background-color: #dedede;
+}
+.collapsibleHn:after {
+  content: '\002B';
+  color: #2f4f4f;
+  float: right;
+  font-size: 22;
+  margin-left: 10px;
+}
+.activeHn:after {
+  content: "\2212";
+}
+.contentHn {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease-out;
+}
+</style>
+<!-- End of CSS styles -->
+
+# What we are up to
+
+>The aim of marketing is to identify the needs of a customer segment, target 
+your campaigns & build their loyalty. 
+<div align = "right"> <font size="-1"> - Peter Drucker, Father of Modern 
+Management</font></div>
+
+The above quote sounds like a great vision for a start-up to build their 
+products and services around. But in the more traditional and well-established 
+sector like retail industry, more often than not, the customers' choices come 
+down to whether or not a product is stocked at the store.
+<br><br>
+
+Historically, retail stores have been product-centric. The store works on
+keeping the prices competitive and the customer buys what's in store. The profit
+is made through the sheer volume of the products sold and largest store captures
+the largest market share. This recipe has worked even in a world where a 
+customer-centric online retailer hit the <a href = "https://www.cnbc.com/2018/09/04/amazon-hits-1-trillion-in-market-value.html"
+target="_blank">
+one trillion market cap</a>.
+<br><br>
+
+But as competition increases, the focus of brick and mortar retailers should be
+put on acquiring new customers and retaining them. Retail discounts and 
+rebates on products will help them achieve this to a great extent. The MO 
+behind this idea is to gain back the initial investment on acquisition from 
+profits made throughout the customer's lifetime. Analysis of transactional data 
+will yield insights into customer behavior, which will further help to increase
+retention.
+<br><br>
+
+Sometimes, monopoly of a store over a region would give them no intention to 
+invest on something that isn't broke. Rather, they concentrate on keeping
+the machine well oiled. Smaller retailers are, whereas, held off by high initial
+investments. Sometimes, it's also lack of conviction on how big a difference
+analytics can make. This brings us to the objective of this project.
+<br><br>
+
+<div class = "grey"><font size = +1> <i> 
+This project examines in detail the growth/fall of customer purchase and product
+sales rates, and to what extent coupons and personalised marketing campaigns 
+influenced the trends. Quantifying the rates can help identify which worked 
+better - the customer centric approach targeting individual customers or 
+operational marketing strategies that target overall growth.
+</i> </font> </div>
+
+# Required Packages
+
+### A short stop...
+
+<font size = +1>The following packages are required to render this HTML document
+</font>  
+
+- <a href="https://yihui.name/knitr/"target="_blank"><b>knitr</b></a>:
+<i>Dynamic report generation in R</i>  
+- <a href="https://github.com/juba/rmdformats"target="_blank"><b>rmdformats</b></a>:
+<i> This package holds the material template used to create this document</i>  
+- <a href="https://rstudio.github.io/DT/"target="_blank"><b>DT</b></a>:
+<i>Display table data in a better way in HTML documents</i>  
+
+<br><br>
+Global options are also set to control the HTML document layout
+```{r message=FALSE, warning=FALSE}
+library(knitr)
+library(rmdformats)
+library(DT)
+
+# Setting the layout width of the template
+options(max.print = "75")
+opts_knit$set(width = "75")
+
+# Globally controlling code blocks
+opts_chunk$set(message = FALSE, # prevent messages 
+               warning = FALSE, # prevent warnings
+               fig.align = "center", # graph position
+               fig.height = 3, # graph default height and width
+               fig.width = 6)
+
+# DT::datatable parameters
+options(DT.options = list(paging = FALSE, # disable pagination
+                          scrollY = "200px", # enable vertical scrolling
+                          scrollX = TRUE, # enable horizontal scrolling
+                          scrollCollapse = TRUE,
+                          autoWidth = TRUE, # centering the table output
+                          ordering = FALSE, # disable sorting data
+                          dom = "t",  # display just the table
+                          initComplete = JS("function(settings, json) {" ,
+                                            "$(this.api().table().header()).css({'color': '#888888'});",
+                                            "}")
+                          ))
+```
+<font size = +1>These packages below help to run the analysis</font>  
+
+- <a href="https://github.com/tidyverse/readr"target="_blank"><b>readr</b></a>:
+<i> Read CSV files</i>
+- <a href="https://ggplot2.tidyverse.org"target="_blank"><b>ggplot2</b></a>:
+<i>Plot charts</i>
+- <a href="http://rpkgs.datanovia.com/ggpubr/"target="_blank"><b>ggpubr</b></a>:
+<i>Group charts to a single block</i>
+- <a href="https://dplyr.tidyverse.org"><b>dplyr</b></a>:
+<i>Data manipulation</i>
+- <a href="https://tidyr.tidyverse.org"><b>tidyr</b></a>:
+<i>Tidy data</i>
+- <a href="https://purrr.tidyverse.org"><b>purrr</b></a>:
+<i>Applying functions over columns</i>
+- <a href="https://plot.ly/r/"target="_blank"><b>plotly</b></a>:
+<i>Interactive charts</i>
+```{r}
+library(readr)
+library(ggplot2)
+library(ggpubr)
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(plotly)
+```
+# The Data Source
+
+This dataset is a masked representation of household level transactions over a 
+two-year period from a group of 2,500 households who are frequent shoppers at a 
+retailer. For certain households, demographic information as well as direct 
+marketing contact history are included. The original <a href = "https://www.dropbox.com/sh/7g8npy9k51dhtjm/AACOwFfvFSjw26fWNDZmaSS1a?dl=1"
+target="_blank">zip file </a>contained 8 csv files, along with a <a href = "https://github.com/mr-hn/dataWranglingProject/blob/master/dataDictionary.pdf"
+target="_blank">codebook</a> with explanations for each files.  
+
+The 8 files are
+
+* <span style="color:#55669e ">hh_demographic.csv</span>  
+This table contains demographic information for a portion of households. Due to 
+nature of the data, the demographic information is not available for all 
+households.
+
+* <span style="color:#55669e ">campaign_desc.csv</span>  
+This table gives the length of time for which a campaign runs. So, any coupons 
+received as part of a campaign are valid within the dates contained in this 
+table.
+
+* <span style="color:#55669e ">campaign_table.csv</span>  
+This table lists the campaigns received by each household in the study. Each 
+household received a different set of campaigns.
+
+<br><br>
+There are three types of campaigns studied as part of this analysis. For 
+campaign TypeA, each participating customer was selected based on the customer’s 
+prior purchase behavior. For campaign TypeB and TypeC, all customers 
+participating in a campaign receives all coupons pertaining to that campaign.
+<br><br>
+
+<div class = "grey"> <font size = +1><i> 
+Thus, in a way, studying the effect of TypeA campaign on sales will give an idea
+about the impact of customer-centric marketing while TypeB and TypeC act more
+like a carpet bomb, indicating the impact of promotion on overall operational
+growth.
+</i></font></div>
+<br><br>
+
+* <span style="color:#55669e ">coupon.csv</span>  
+This table lists all the coupons sent to customers as part of a campaign, as 
+well as the products for which each coupon is redeemable. 
+
+* <span style="color:#55669e ">coupon_redempt.csv</span>  
+This table identifies the coupons that each household redeemed.
+
+* <span style="color:#55669e ">product.csv</span>  
+This table contains information on each product sold such as type of product, 
+national or private label and a brand identifier.
+
+* <span style="color:#55669e ">transaction.csv</span>  
+This table contains all products purchased by households within this study. 
+Each line found in this table is essentially the same line that would be found 
+on a store receipt.
+
+* <span style="color:#55669e ">causal.csv</span>  
+This table signifies whether a given product was featured in the weekly mailer 
+or was part of an in-store display (other than regular product placement). Since 
+the analysis is only trying to find out the effectiveness of targeted marketing, 
+the causal data is not used throughout.
+
+<br><br>
+A relationship diagram between the different tables is available below.
+<br><br>
+![](`r "https://github.com/mr-hn/dataWranglingProject/raw/master/tableRelations.png"`){width=30%}
+
+All files are hosted and downloaded from <a href = "https://github.com/mr-hn/dataWranglingProject"target="_blank">GitHub</a>.
+
+# Importing & Summarizing 
+## {.tabset}
+```{r}
+path <- "data/"
+file_type <- ".csv"
+
+file_names <- c("hh_demographic",
+                "campaign_desc",
+                "campaign_table",
+                "coupon",
+                "coupon_redempt",
+                "product",
+                "transaction_data")
+
+for (i in seq_along(file_names)) {
+  
+  full_path <- paste0(path, file_names[i], file_type)
+  
+  if (file.exists(full_path)) {
+    # Remove "_data" from file names
+    var_name <- gsub("_data", "", file_names[i])
+    assign(var_name, read_csv(full_path))
+  } else {
+    print("File not found")
+  }
+}
+```
+To give the reader a gist of the data, a preview of all the tables is available 
+below. Most of the columns of the tables are self-explanatory. Peculiarities,
+if any, are stated below each table. The <a href ="https://github.com/mr-hn/dataWranglingProject/blob/master/dataDictionary.pdf" target="_blank">codebook</a> contains further information.
+<br><br>
+
+### hh_demographic
+<br><br>
+The household demographic information. The blank cells indicate that the 
+customer did not fill the information on the survey sheet.
+```{r}
+# Changing "Unknown" & "None/Unknown" entries
+hh_demographic$homeowner_desc[which(
+  hh_demographic$homeowner_desc == "Unknown")] <- NA
+hh_demographic$hh_comp_desc[which(
+  hh_demographic$hh_comp_desc == "Unknown")] <- NA
+hh_demographic$kid_category_desc[which(
+  hh_demographic$kid_category_desc == c("None/Unknown"))] <- NA
+
+head(hh_demographic, 100) %>% datatable(
+  caption = "Household demographic information - a sample")
+```
+marital_status_code encoding  
+<i>A - Single, B - Married, U - Unknown</i>
+```{r}
+empty_cells <- sum(is.na(hh_demographic))
+num_rows <- nrow(hh_demographic)
+```
+There are `r empty_cells` NA values in this table. As mentioned in the codebook,
+the entire analysis contains transactions for 2500 customers. <b>But the 
+demographic data is available only for `r num_rows` customers. </b>
+<br><br>
+The distribution of the age range of customers, the income range, and the
+household size is available below.
+
+```{r out.width = "60%"}
+# Sorting the age range by age
+sorted_data <- sort(hh_demographic$age_desc, decreasing = TRUE)
+plot_ly(x = sorted_data, marker = list(color = 'rgb(2,149,135)'),
+                 type = "histogram") %>%
+  layout(title = 'Distribution of the age range of customers',
+         xaxis = list(title = "Age Range"), 
+         yaxis = list(title = "Frequency")) %>%
+  config(displayModeBar = F)
+
+# Sorting the data by salary range
+sorted_data <- sort(hh_demographic$income_desc, decreasing = TRUE)
+plot_ly(x = sorted_data, marker = list(color = 'rgb(2,149,135)'),
+                 type = "histogram") %>%
+  layout(title = 'Salary range of the participating customers',
+         xaxis = list(title = "Salary Range"), 
+         yaxis = list(title = "Frequency")) %>%
+  config(displayModeBar = F)
+
+# Sorting household by the size
+sorted_data <- sort(hh_demographic$household_size_desc, decreasing = TRUE)
+plot_ly(x = sorted_data, marker = list(color = 'rgb(2,149,135)'),
+                 type = "histogram") %>%
+  layout(title = 'Household sizes of the participating customers',
+         xaxis = list(title = "Household Size"), 
+         yaxis = list(title = "Frequency")) %>%
+  config(displayModeBar = F)
+```
+
+### campaign_desc
+<br><br>
+The campaign is valid only between the start and end day. For example, in the
+table below, the campaign number 24 was TypeB that lasted between day 659 and 
+day 719 of the data recording.
+
+```{r}
+head(campaign_desc, 100) %>% datatable(caption = "Length and Types of campaigns")
+empty_cells <- sum(is.na(campaign_desc))
+num_rows <- nrow(campaign_desc)
+campaign_range <- range(campaign_desc$campaign)
+```
+There are `r empty_cells` NA values in this table and <b>information about 
+`r num_rows` campaigns, numbered from `r campaign_range[1]` to 
+`r campaign_range[2]`</b>.
+
+```{r}
+day_range <- c(NA,NA)
+day_range[1] <- campaign_desc %>% 
+  arrange(start_day) %>% select(start_day) %>% .[[1,1]]
+day_range[2] <- campaign_desc %>% 
+  arrange(desc(end_day)) %>% select(end_day) %>% .[[1,1]]
+```
+The first campaign was sent out on day `r day_range[1]` and the last campaign
+ended on `r day_range[2]`. This piece of information will help us <b>filter
+transactions that did not fall within this window.</b>
+
+```{r results = 'hide'}
+str(campaign_desc)
+
+# Looking at the structure , the description column must be changed to factor.
+campaign_desc$description <- as.factor(campaign_desc$description)
+```
+<b> Summarizing individual campaign types </b>
+```{r}
+# Function to print campaigns of each type
+print_camp_summ <- function(description_in) {
+  campaign_desc %>%
+    filter(description == description_in) %>% 
+    arrange(campaign) %>% 
+    datatable(caption = paste("Campaigns of", description_in, "-",
+                              nrow(filter(campaign_desc, 
+                                          description == description_in)),
+                              "entries"))
+}
+
+print_camp_summ("TypeA")
+print_camp_summ("TypeB")
+print_camp_summ("TypeC")
+```
+
+### campaign_table
+<br><br>
+Campaigns received by each household in the study.
+```{r}
+campaign_table %>% 
+  arrange(by = household_key) %>%
+  head(100) %>%
+  datatable(caption = "Campaigns received by households - a sample")
+
+empty_cells <- sum(is.na(campaign_table))
+num_rows <- nrow(campaign_table)
+distinct_households <- campaign_table %>% distinct(household_key) %>% nrow()
+```
+There are `r empty_cells` NA values in this table and <b>information about 
+`r num_rows` campaigns sent to `r distinct_households` households.</b>
+
+```{r out.width = "100%"}
+campaign_table %>% 
+  group_by(description) %>%
+  summarize(campaign_perc = paste0(round(100*n()/nrow(campaign_table),2),"%")) %>%
+  datatable(caption = "Percentage of campaigns sent, belonging to different Types")
+
+proportion_data <- campaign_table %>% 
+  group_by(household_key, description) %>%
+  summarize( campaignCount = n() ) %>%
+  spread(key = "description", value = "campaignCount")
+
+plot_ly(proportion_data, x = ~household_key, y = ~TypeA, 
+        type = 'bar', name = 'TypeA') %>%
+  add_trace(y = ~TypeB, name = 'TypeB') %>%
+  add_trace(y = ~TypeC, name = 'TypeC') %>%
+  layout(
+    title = 'Distribution of campaign types sent across households',
+    xaxis = list(title = "Household Key"),
+    yaxis = list(title = 'Campaign Type Counts'), barmode = 'stack') %>%
+  config(displayModeBar = F)
+```
+
+### coupon
+<br><br>
+This table lists all the coupons sent as part of a campaign, as well as the
+products for which each coupon is redeemable. 
+<br><br>
+Each unique coupon_upc is redeemable for multiple products and belong to one of
+the 30 campaigns.
+
+```{r}
+head(coupon, 100) %>% datatable(
+  caption = "Products offerred in coupons, belongings to different campaigns")
+empty_cells <- sum(is.na(coupon))
+```
+There are `r empty_cells` NA elements in this table.
+```{r}
+unique_camp_coupon <- coupon %>%    # Unique campaign+coupon_upc combination
+  distinct(campaign, coupon_upc) %>%
+  count()
+unique_coupon <- coupon %>%         # Unique coupon_upc
+  distinct(coupon_upc)  %>%
+  count()
+count_repeat <- unique_camp_coupon$n - unique_coupon$n
+```
+There are `r unique_coupon$n` unique coupon_upcs in the table. But sorting them 
+at campagin+coupon_upc gives `r unique_camp_coupon$n` rows. This difference of 
+`r count_repeat` rows indicates that a coupon_upc could be assigned to multiple
+campaigns. The repeated coupon_upcs are tabulated below.
+
+```{r}
+data <- coupon %>% 
+  distinct(campaign, coupon_upc) %>%
+  arrange(by = coupon_upc) %>%
+  select("coupon_upc")
+
+repeat_data <- data[duplicated(data),]
+
+coupon %>% 
+  distinct(campaign, coupon_upc) %>%
+  arrange(by = coupon_upc) %>%
+  filter(coupon_upc %in% repeat_data$coupon_upc) %>%
+  arrange(by = coupon_upc) %>%
+  datatable(caption = "Same coupon_upc assigned to multiple campaigns")
+```
+<b>Thus, coupons with the same coupon_upc but under a different campaign do 
+exist</b>
+```{r out.width = "100%"}
+# Getting count of products available for each coupon
+coupon_product_count <- coupon %>%
+  group_by(coupon_upc, campaign) %>%
+  summarize(product_count = n()) 
+
+# Converting coupon_upc to character to plot chart
+coupon_product_count$coupon_upc <- as.character(coupon_product_count$coupon_upc)
+plot_ly(coupon_product_count, x = ~coupon_upc, y = ~product_count,
+        marker = list(color = 'rgb(2,149,135)'),
+        type = "bar") %>%
+  layout(title = "Some coupons offer discounts on thousands of product",
+         xaxis = list(title = "Coupon_UPC"), 
+         yaxis = list(title = "Count of product offered for the coupon")) %>%
+  config(displayModeBar = F)
+```
+The numbers above also mean that the likelyhood of a customer redeeming one of
+the coupons containing a large number of products is high.
+
+### coupon_redempt
+<br><br>
+This table identifies the campaign+coupon that each household redeemed and the
+day it was redeemed.
+```{r}
+head(coupon_redempt, 100) %>% datatable(
+  caption = "Coupons redeemed by households - a sample")
+num_rows <- nrow(coupon_redempt)
+empty_cells <- sum(is.na(num_rows))
+```
+There are `r empty_cells` NA rows in the table and <b>a total of `r num_rows` 
+coupons were redeemed over the period.</b>
+
+```{r}
+redemption_summary <- coupon_redempt %>%
+  group_by(household_key) %>%
+  summarize(each_house_count = n()) %>%
+  arrange(by = each_house_count) %>%
+  summarize(low = min(each_house_count),
+            mean = mean(each_house_count),
+            max = max(each_house_count))
+```
+The redemption count of each household ranged from `r redemption_summary$low`
+to `r redemption_summary$max`, with an average of 
+`r round(redemption_summary$mean,1)` redemptions per household. The pattern is 
+plotted below.
+
+```{r out.width = "100%"}
+redemption_data <- coupon_redempt %>%
+  group_by(household_key) %>%
+  summarize(each_house_count = n()) 
+
+plot_ly(redemption_data, x = ~household_key, y = ~each_house_count,
+        marker = list(color = 'rgb(2,149,135)'),
+        type = "bar") %>%
+  layout(title = "Distribution of coupon redemptions by household",
+         xaxis = list(title = "Household ID"), 
+         yaxis = list(title = "Number of coupons redeemed")) %>%
+  config(displayModeBar = F)
+```
+
+### product
+<br><br>
+Info on each product sold to the selected households
+```{r}
+head(product, 100) %>% datatable(
+  caption = "Detailed information of a sample of products")
+
+j <- 1
+cols_to_count <- c(1, 3, 5, 2)
+count <- c(NA, NA, NA, NA)
+for (i in (cols_to_count)) {
+  count[j] <- product[i] %>% distinct() %>% count() %>% .[[1,]]
+  j <- j + 1
+}
+```
+<b>The table contains `r count[1]` unique products in `r count[2]` departments. 
+There are `r count[3]` commodities and `r count[4]` manufacturers. </b>
+
+### transaction
+<br><br>
+The table has info on every item purchased by a household. The basket_id 
+represents each purchases, with each item present across multiple records. There
+are `r nrow(transaction)` lines in this table. Each line is essentially the 
+same line that one would find on the store receipt.
+```{r}
+head(transaction, 100) %>% datatable(
+  caption = "Purchases by households - a sample")
+```
+
+```{r}
+unique_purch <- transaction %>% distinct(basket_id) %>% count()
+unique_items <- transaction %>% nrow()
+totalRevenue <- sum(transaction$sales_value)
+```
+<b>There are `r unique_purch$n` unique purchases with `r unique_items` items 
+sold that generated a revenue of `r paste0("$ ", round(totalRevenue,2))`</b>
+<br><br>
+There are 4 price columns in the transaction dataset.
+
+* sales_value is the amount of dollars received by the retailer on the sale of 
+the specific product, taking the coupon match and loyalty card discount into 
+account. It is not the actual price paid by the customer.
+* retail_disc is any discount offerred by the retailer before any coupons
+* coupon_disc is the discount from the coupon, reimbursed by the manufacturer 
+issuing the coupon
+* coupon_match is a discount from the coupon, but this cross is the retailer's 
+to bear
+
+# Exploratory Data Analysis
+
+<button class="collapsibleHn">
+How were the different campaigns received?
+</button>
+<div class="contentHn">
+<p>
+The table below shows the number of households that received a campaign vs 
+number of household that redeemed at least one coupon from that campaign.
+They are ordered by redeem_percent.
+```{r}
+sent_campaign_redeem <- bind_cols(
+  
+  campaign_table %>% # info on sent campaigns
+  group_by(description, campaign) %>%
+  summarize(receive_count = n())
+  ,
+  coupon_redempt %>% # info on redeemed coupons
+  inner_join(campaign_desc, by = c("campaign")) %>% 
+  group_by(description, campaign, household_key) %>% 
+  summarize(n()) %>% # info on redeemed campaigns
+    group_by(description, campaign) %>% 
+    summarize(redeem_count = n())
+  ) %>% 
+  select(description, campaign, receive_count, redeem_count) %>% 
+  mutate(campaign_redeem_perc = round(100 * redeem_count / receive_count, 2)) %>% 
+  arrange(desc(campaign_redeem_perc))
+
+sent_campaign_redeem %>% datatable()
+```
+Grouping the data by campaign description, it's clear that personalised campaign
+TypeA has double the response than the other campaigns.
+
+```{r}
+sent_campaign_redeem %>% 
+  group_by(description) %>% 
+  summarize(avg_campaign_response = 
+              paste0(round(100 * sum(redeem_count) / sum(receive_count), 2),"%")) %>% 
+  datatable()
+```
+This becomes even more evident when the individual coupons are counted.
+```{r}
+redeem_count <- coupon_redempt %>% 
+  inner_join(campaign_desc, by = c("campaign")) %>% 
+  group_by(description, campaign) %>% 
+  summarize(redeem_count = n()) %>% 
+  group_by(description) %>% 
+  summarize(coupon_redeemed_count = sum(redeem_count)) 
+
+redeem_count %>% datatable()
+```
+</p>
+</div>
+
+<button class="collapsibleHn"> 
+Which campaign generated the most revenue?
+</button>
+<div class="contentHn"><p>
+
+```{r}
+# Coupon_disc amount is stored as negative
+coupon_count <- transaction %>% filter(coupon_disc < 0) %>% nrow() 
+```
+For starters, there are `r coupon_count`
+line items where a coupon discount was applied. But this counts all coupons in 
+the entire two year period, not just the 30 campaigns that we are looking at.
+
+```{r}
+filtered_txn <- 
+  # Redeemed coupons information
+  coupon_redempt %>%
+  # The type of campaign the coupon belonged to
+  inner_join(campaign_desc, by = "campaign") %>% 
+  # Ensuring that the day of redeem falls within the campaign validity
+  filter(day >= start_day & day <= end_day) %>% 
+  
+  # Info on all products the coupon was valid for
+  inner_join(coupon, by = "coupon_upc", "campaign") %>% 
+  # Keeping only required columns
+  select(household_key, day, coupon_upc, campaign.x, description, product_id) %>% 
+  # Renaming a column
+  rename(campaign = "campaign.x") %>% 
+  
+  # Applying the validity and products filter to transactions
+  inner_join(transaction, by = c("household_key", "day", "product_id")) %>% 
+  # Choosing only records where the discount was applied
+  # filter(coupon_disc < 0) %>%
+  # But, even if the discount amount is zero, the coupon is still considered
+  # applied. This scenario occurs when a discount is so successful, the store
+  # decides to offer the discount to all shoppers.
+  # Another possible scenario is when an item is sold as an add-on
+  # Leaving out unnecessary columns
+  select(household_key, day, basket_id, campaign, description, coupon_upc, 
+         product_id, quantity, sales_value, retail_disc, coupon_disc, 
+         coupon_match_disc)
+```
+When the campaign validity and the product eligibility filters are applied, we
+are left with `r nrow(filtered_txn)` items. A sample of the data is printed 
+below.
+
+```{r}
+filtered_txn %>% head(100) %>% 
+  datatable(caption = "Transaction items where one of the 30 campaigns were applied")
+```
+Grouping the sales into different campaign types shows again that TypeA campaigns
+sold more products and generated more revenue.  
+But when the data is combined with the number of times a coupon was redeemed, an
+interesting detail emerges. Customers who redeemed coupons of TypeC tended to
+spend more and buy more quantities of the products.
+
+```{r out.width = "100%"}
+campaign_revenue <- 
+  bind_cols(redeem_count # df from previous analysis
+          ,
+          filtered_txn %>% group_by(description) %>% 
+            summarize(sum_quantity = sum(quantity),
+                      sum_revenue = sum(sales_value))
+          ) %>% 
+  select(-description1) %>% 
+  rename(redeem_count = "coupon_redeemed_count") %>% 
+  mutate(quant_per_coupon = round(sum_quantity / redeem_count, 1),
+         rev_per_coupon = round(sum_revenue / redeem_count, 1)) 
+
+campaign_revenue %>% datatable()
+
+# Contains unique basket IDs where a coupon was applied
+coupon_basket <- filtered_txn %>% group_by(basket_id) %>% 
+  summarize_all(funs(first))
+
+# Find basket cost of transactions where a coupon was applied
+coupon_tnx <- bind_cols(
+  transaction %>% 
+    inner_join(coupon_basket, by = "basket_id") %>% 
+    group_by(description, basket_id) %>% 
+    summarize(basket_cost = sum(sales_value.x) + sum(coupon_disc.x))
+  ,
+  transaction %>% 
+    inner_join(coupon_basket, by = "basket_id") %>% 
+    group_by(basket_id) %>% 
+    summarize_all(funs(first)) %>% 
+    select(day = "day.x")
+  )
+
+# Contains unique days when coupons were applied
+coupon_days <- filtered_txn %>% group_by(day) %>% summarize_all(funs(first))
+
+# Find average cost of a basket on the days coupons were applied
+other_tnx <- bind_cols(
+  transaction %>% 
+    inner_join(coupon_days, by = "day") %>% 
+    group_by(day, basket_id.x) %>% 
+    summarize(n()) %>% 
+    group_by(day) %>% 
+    summarize(total_baskets = n())
+  ,
+  transaction %>% 
+    inner_join(coupon_days, by = "day") %>% 
+    group_by(day) %>% 
+    summarize(total_basket_cost = (sum(sales_value.x) + sum(coupon_disc.x)))
+) %>%
+  mutate(avg_basket_cost = total_basket_cost / total_baskets) %>% 
+  select(day, avg_basket_cost)
+
+# Combining both the data from above
+combined_tnx <- coupon_tnx %>%  inner_join(other_tnx, by = "day")
+
+combined_tnx$basket_id <- as.character(coupon_tnx$basket_id)
+plot_ly(combined_tnx) %>% 
+  add_trace(x = ~basket_id, y = ~basket_cost,
+            color = ~description, type = "scatter")  %>%
+  add_trace(x = ~basket_id, y = ~avg_basket_cost,
+            type = "scatter", name = "Avg Basket") %>%
+  layout(
+    title = 'The purchase cost distribution for different campaigns against the
+             average basket cost for the same day',
+    yaxis = list(title = 'Cost of the basket'),
+    xaxis = list(title = "Basket ID", showticklabels = FALSE)) %>%
+  config(displayModeBar = F)
+```
+
+The graph above makes it very clear that promotion campaigns work.
+<br><br>
+The reason for the vertical bands of campaign purchases is because of the 
+campaign validity period and the sequential numbering of basket IDs over time.
+</p></div>
+
+<button class="collapsibleHn"> 
+How did the households' expense habit change?
+</button>
+<div class="contentHn"><p>
+
+Now that campaigns are established to make a big difference to the customer
+expense at the store, let's see if personalised campaigns of TypeA made 
+a larger difference. The chart below visualizes the purchases.
+<br><br>
+
+households encoding  
+<i>hh_A - Households that received only personalised type A campaign</i>  
+<i>hh_ABC - Households that received all three campaigns</i>  
+<i>hh_BC - Households that did not receive personalised campaign</i>  
+
+<br><br>
+<font size = -1> <i> Click to enlarge ggplots </i> </font>
+```{r fig.width = 10, fig.height = 6}
+# Temporary tables to filter households by campaign they received
+temp_hh <- campaign_table %>%
+  inner_join(campaign_desc, by = "campaign") %>% 
+  select(-c(start_day, end_day, description.y)) %>%
+  rename(description = "description.x") %>%
+  group_by(household_key, description) %>% 
+  summarize_all(funs(first))
+temp_A <- temp_hh %>% filter(description == "TypeA")
+temp_notA <- temp_hh %>% filter(description != "TypeA")
+
+# Households that received different sets ofcampaigns
+hh_ABC <- temp_A[temp_A$household_key %in% temp_notA$household_key,]
+hh_A <- temp_A[!temp_A$household_key %in% temp_notA$household_key,]
+hh_BC <- temp_notA[!temp_notA$household_key %in% hh_ABC$household_key,]
+
+# All transactions associated to different households
+hh_txn_ABC <- transaction %>% 
+  filter(household_key %in% hh_ABC$household_key) 
+
+hh_txn_A <- transaction %>%
+  filter(household_key %in% hh_A$household_key)
+
+hh_txn_BC <- transaction %>%
+  filter(household_key %in% hh_BC$household_key) 
+
+hh_txn <- bind_rows("hh_ABC" = hh_txn_ABC, "hh_A" = hh_txn_A, 
+                    "hh_BC" = hh_txn_BC, .id = "households")
+
+# Mark promotions. Some baskets could have both typeABC promos applied
+# hence generalised
+hh_txn$promotion <- ifelse((hh_txn$basket_id %in%
+                              filtered_txn$basket_id),
+                           "promotion_applied", "normal_cost")
+
+# Summary of expenses of different household categories
+hh_txn_summary <- hh_txn %>% 
+  group_by(households, promotion, basket_id) %>% 
+  summarize(basket_cost = sum(sales_value) + sum(coupon_disc))
+  
+# Grouping the data 
+hh_camp_summary <- hh_txn_summary %>% 
+  group_by(households, promotion) %>% 
+  summarize(avg_basket = round(mean(basket_cost),2),
+            count = n()) %>% 
+  gather(variable, value, -(households:promotion)) %>% 
+  unite(temp, promotion, variable) %>% 
+  spread(temp, value) %>%
+  rename(during_promotion = "promotion_applied_avg_basket",
+         normal_cost = "normal_cost_avg_basket",
+         promo_count = "promotion_applied_count",
+         normal_count = "normal_cost_count") %>% 
+  mutate(increase = paste0(round(during_promotion/normal_cost,2),"x"))
+
+plot1 <- hh_txn_summary %>% filter(promotion == "normal_cost") %>% 
+  ggplot(aes(basket_id, basket_cost, col = households)) + 
+  geom_point(alpha = 0.15) + 
+  geom_hline(yintercept = mean(hh_camp_summary$normal_cost)) +
+  annotate("text", x = 30000000000, y = mean(hh_camp_summary$normal_cost) + 20,
+           label = paste("average = ",
+                         round(mean(hh_camp_summary$normal_cost),2))) +
+  theme_light() +
+  theme(axis.text.x  = element_blank(),
+        axis.title.x = element_blank(),
+        axis.ticks.x = element_blank() ) +
+  ggtitle("Basket costs of participating households when no coupons were applied") +
+  scale_y_continuous(limits = c(0, 400)) 
+
+plot2 <- hh_txn_summary %>% filter(promotion == "promotion_applied") %>% 
+  ggplot(aes(basket_id, basket_cost, col = households)) + 
+  geom_point(alpha = 0.5) + 
+  geom_hline(yintercept = mean(hh_camp_summary$during_promotion)) +
+  annotate("text", x = 32500000000, y = mean(hh_camp_summary$during_promotion) + 20,
+           label = paste("average = ",
+                         round(mean(hh_camp_summary$during_promotion),2))) +
+  theme_light() +
+  theme(axis.text.x  = element_blank(),
+        axis.title.x = element_blank(),
+        axis.ticks.x = element_blank() ) +
+  ggtitle("Basket costs of participating households when coupons were applied") 
+
+ggarrange(plot1, plot2, nrow = 2)
+```
+<br><br>
+The table below shows the expenses of households who received personalised 
+campaigns and those who didn't, along with those who received both personalised
+and typeB/C campaigns.
+
+```{r}
+hh_camp_summary  %>% 
+  datatable(caption = "Average basket cost of households who received coupons")
+```
+
+Clearly, people spend a lot more on average per basket when they redeemed
+one of the coupons. It increases by three times on average for households
+that received personalised campaigns.
+<br><br>
+
+But one could argue that the average is skewed because not all households
+responded to the campaign - which can be seen in the huge difference between
+the redeem counts in the table above.
+<br><br>
+
+This is verified by looking at only households that redeemed at least one coupon.
+```{r}
+hh_exp_inc <- hh_txn %>% 
+  # filter only those households that redeemed coupons
+  filter(household_key %in% filtered_txn$household_key ) %>% 
+  group_by(households, household_key, promotion, basket_id) %>% 
+  summarize(basket_cost = sum(sales_value) + sum(coupon_disc)) %>% 
+  group_by(households, household_key, promotion) 
+
+# Done in two steps since hh_exp_inc is required later
+hh_exp_inc_summary <- hh_exp_inc %>% 
+  summarize(avg_basket_cost = round(mean(basket_cost, na.rm = TRUE),2),
+            total_count = n()) %>% 
+  group_by(households, promotion) %>% 
+  summarize(avg_basket = round(mean(avg_basket_cost),2), 
+            count = sum(total_count)) %>% 
+  gather(variable, value, -(households:promotion)) %>% 
+  unite(temp, promotion, variable) %>% 
+  spread(temp, value) %>%
+  rename(promotion_applied = "promotion_applied_avg_basket",
+         normal_cost = "normal_cost_avg_basket",
+         promo_count = "promotion_applied_count",
+         normal_count = "normal_cost_count") %>% 
+  mutate(increase = paste0(round(promotion_applied/normal_cost,2),"x"))
+
+hh_exp_inc_summary %>%
+  datatable(caption = "Average basket cost of households who redeemed coupons")
+```
+Now the increase percent looks much more similar across the categories. To see 
+if the increase in expenses is statistically different across the campaign 
+categories, a one-way anova test can be performed. The null hypothesis for this 
+test would be that the increase is the same for all three categories. 
+<br><br>
+As seen below, with the p-value being greater than 0.05, we fail to reject 
+the null hypothesis, meaning the increase in purchases was similar for all three 
+categories of households. But there remains the fact that the test dealt with 8
+counts of hh_BC households who redeemed promotions.
+
+```{r}
+hh_exp_inc %>% 
+  summarize(avg_basket_cost = round(mean(basket_cost, na.rm = TRUE),2)) %>% 
+  spread(promotion, avg_basket_cost) %>% 
+  mutate(increase = promotion_applied / normal_cost) %>% 
+  aov(increase ~ households, data = .) %>% 
+  summary()
+```
+</p></div>
+
+<button class="collapsibleHn"> 
+Did the purchases increase over time?
+</button>
+
+<div class="contentHn"><p>
+
+The graphs below plots the <i>average number of purchases per day</i> by one
+household belonging to different campaign groups. It also indicates all the
+running campaigns the household was eligible for.
+<br><br>
+For example, in the first graph, around day 200, about 0.25 purchases were made
+in a day by one household, of all households that received all three campaigns.  
+Around day 400, when a campaign of TypeC was running, between 0.25 to 0.35 
+purchases were made. Put in other words, of all the households
+who received all three campaigns, each household made a trip to the store once
+every 3 or 4 days.
+
+<br><br>
+<font size = -1> <i> Click to enlarge ggplots </i> </font>
+```{r fig.width = 10}
+# Count of each household type
+hh_camp_count <- hh_txn %>% group_by(households) %>%
+  distinct(household_key) %>% count()
+
+# Multiple campaigns of the same type could be running
+# Function that corrects the start_day to prevent overlapping bands in the plot
+group_validated_day <- function(campaign_type){
+  
+  # Filters the data to the incoming campaign type
+  campaign_period <-
+    campaign_desc %>% arrange(description, start_day) %>% 
+    filter(description == campaign_type)
+  
+  if (nrow(campaign_period) > 0) {
+    # Sets the start day to previous end day if another campaign is already active
+    for (i in 2:nrow(campaign_period)) {
+      if (campaign_period[i, "start_day"] < campaign_period[i - 1, "end_day"]) {   
+        campaign_period[i,"new_start_day"] <- campaign_period[i - 1, "end_day"]
+      } else{
+        campaign_period[i,"new_start_day"] <- campaign_period[i, "start_day"]
+      }
+    }
+    # First row doesn't require a change
+    campaign_period[1,"new_start_day"] <- campaign_period[1,"start_day"]
+  }
+  # Returns df with corrected start and end day of each campaign type
+  return(campaign_period)
+}
+
+# Function that plots average customer purchase per day, with active campaign
+time_series_data_plot <- function(req_output, households_in, type1 = "TypeA", 
+                                  type2 = "TypeB", type3 = "TypeC") {
+  data <- 
+    # Filter with incoming household type
+    hh_txn %>% filter(households == households_in) %>% 
+    group_by(households, household_key, day, promotion, basket_id) %>% 
+    # Count number of line items
+    summarize(n()) %>% 
+    group_by(households, household_key, day, promotion) %>% 
+    # Count number of baskets per household_key
+    summarize(count = n()) %>% 
+    # The data can be differentiated with whether or not promotions applied
+    # But that does not help uncover anything.
+    # group_by(households, day, promotion) %>%
+    group_by(households, day) %>% 
+    # Count of baskets per day
+    summarize(no_of_purchase = sum(count)) %>% 
+    inner_join(hh_camp_count, by = "households") %>% 
+    # Number of baskets/customer
+    mutate(avg_household_purch = no_of_purchase / n)  
+  
+  # Return dataframe or plot based on requirement
+  if (req_output == "plot") {
+    plot <- data %>% 
+      ggplot() +
+      geom_point(aes(day, avg_household_purch), alpha = 0.5) +
+      geom_hline(yintercept = mean(data$avg_household_purch, na.rm = TRUE)) +
+      annotate("text", x = 30, y = 1.1 * mean(data$avg_household_purch, 
+                                               na.rm = TRUE),
+               label = paste("average = ",
+                             round(mean(data$avg_household_purch, na.rm = TRUE),
+                                   2)
+                             )) +
+      # Three bands, one for each type of campaign, IF it's running
+      geom_rect(data = group_validated_day(campaign_type = type1),
+                aes(xmin = new_start_day, xmax = end_day,
+                    ymin = -Inf, ymax = Inf,
+                    fill = paste(type1, "is running")), alpha = 0.2) +
+      geom_rect(data = group_validated_day(campaign_type = type2),
+                aes(xmin = new_start_day, xmax = end_day,
+                    ymin = -Inf, ymax = Inf,
+                    fill = paste(type2, "is running")), alpha = 0.2) +
+      geom_rect(data = group_validated_day(campaign_type = type3),
+                aes(xmin = new_start_day, xmax = end_day,
+                    ymin = -Inf, ymax = Inf,
+                    fill = paste(type3, "is running")), alpha = 0.2) +
+      theme(legend.title = element_blank()) 
+    
+    return(plot) 
+  } else {
+    return(data)
+  }
+}
+
+# Calling function for households that received TypeABC, requesting plot 
+time_series_data_plot(req_output = "plot", households_in =  "hh_ABC",
+                 type1 = "TypeA", type2 = "TypeB", type3 = "TypeC") %>% 
+  annotate_figure(bottom = "Purchase rate of households in all 3 campaigns")
+
+time_series_data_plot(req_output = "plot", households_in = "hh_A", 
+                 # The graph always prints three bands
+                 # Passing TypeA 3 times plots TypeA band one over another thrice
+                 type1 = "TypeA", type2 = "TypeA",type3 = "TypeA") %>% 
+  annotate_figure(bottom = "Purchase rate of households in only campaign TypeA ")
+
+time_series_data_plot(req_output = "plot", households_in = "hh_BC",
+                 # Passing TypeC twice since graph expects 3 bands
+                 type1 = "TypeC", type2 = "TypeC", type3 = "TypeB") %>% 
+  annotate_figure(bottom = "Purchase rate of households in campaign TypeB & TypeC")
+```
+<br><br>
+What's immediately clear from the first two graphs is the fact that, well,
+TypeA coupons were only sent to households whose purchase rate steadily increased
+over the first 200 days.
+<br><br>
+The high difference in average rate in the first two graphs (0.26 vs 0.14) 
+shows that customers who <i>also</i> received TypeBC (graph 1) coupons tended to 
+purchase more frequently, reaching a steady ~0.3 purchases per day after 
+the initial growth period.
+<br><br>
+But the most interesting observation is the averages of graph two and three. They
+are about the same - one purchase every ~8 days. Households receiving 
+personalised coupon have the same purchase rate as those who don't.
+<br><br>
+The steady increase in the purchase rate in the first 200 days can probably be 
+explained as new customer growth or customers getting recorded in the system as 
+a household number.
+<br><br>
+Coming to the last graph however, purchase rate has been very erratic. The
+purchase behaviour is harder to analyze with the rate hovering up and
+down even during campaigns.
+<br><br>
+
+The data in the second graph can be further explored by since there are well-defined
+bands of days when the campaing was on and off. Cutting away the first 200 days,
+the distribution is plotted below.
+```{r out.width = "100%"}
+hh_A_purch_rate <- time_series_data_plot(req_output = "data", 
+                                         households_in = "hh_A")
+type_A_period <- group_validated_day(campaign_type = "TypeA")
+
+# Mark days when campaign was running
+type_A_campaign_running <-
+  hh_A_purch_rate %>% filter(day > 200) %>% 
+  merge(type_A_period) %>% 
+  select(households, day, avg_household_purch, new_start_day, end_day) %>% 
+  mutate(temp_on = ifelse((day >= new_start_day & day <= end_day), "X", 0)) %>% 
+  group_by(day) %>% 
+  mutate(promo_on = ifelse(any(temp_on == "X"), "TypeA Running", "No Campaign")) %>% 
+  group_by(day) %>% 
+  summarise_all(funs(first))
+
+plot3 <- type_A_campaign_running %>% 
+  ggplot(aes(day, avg_household_purch, col = promo_on)) + 
+  geom_point() + theme_light() +
+  xlab("Purchase rate change of households that received only TypeA campaigns")
+
+plot3 %>% ggplotly() %>% config(displayModeBar = F)
+```
+<br><br>
+Looking at the spread of the data in the histograms, it's safe to say that
+the sales were not different when the campaign A was on and off, although it has
+been noted earlier that the money the shoppers spent during campaign is higher.
+```{r out.width = "100%"}
+avg_over_days <- type_A_campaign_running %>% 
+  group_by(promo_on) %>% 
+  summarize(avg = mean(avg_household_purch))
+
+plot4 <- type_A_campaign_running %>% 
+  ggplot(aes(avg_household_purch)) + geom_histogram(aes(fill = promo_on)) +
+  coord_cartesian(xlim = c(0.08, 0.265)) +
+  geom_vline(data = avg_over_days, aes(xintercept = avg)) +
+  facet_wrap( ~ promo_on, ncol = 2) +
+  theme_light() +
+  theme(legend.title = element_blank(),  legend.position = "none") 
+
+plot4 %>% ggplotly() %>% config(displayModeBar = F)
+```
+</p></div>
+
+# Summary
+
+<div class = "grey"><font size = +1> <center> <i>
+All four analyses unanimously confirm that promotions work.
+<br><br>
+While TypeA was better received, it did not make a stronger impact on sales and revenue.
+</center> </i> </font> </div>
+
+<br><br>
+
+<div class = "grey"><center>
+The personalised campaigns of TypeA had the highest response with about one in 
+six households redeeming them on average, while TypeB and TypeC were redeemed by 
+one out of 12 households.
+<br><br>
+```{r echo = FALSE, fig.width = 5, fig.height = 2.5}
+sent_campaign_redeem %>% 
+  group_by(description) %>% 
+  summarize(avg_campaign_response = 
+              round(100 * sum(redeem_count) / sum(receive_count), 2)) %>% 
+  ggplot(aes(description, avg_campaign_response)) +
+  geom_col(fill = "#029587") +
+  ggtitle('TypeA was received twice as well as TypeB and TypeC') +
+  ylab("In percent") +
+  theme(plot.background = element_rect(fill = "#eeeeee"),
+        panel.background = element_rect(fill = "#eeeeee"),
+        axis.title.x = element_blank(),
+        axis.ticks.x = element_blank())
+```
+</center> </div>
+<br><br>
+
+<div class = "grey"><center>
+But TypeA campaign does not preserve the lead when the revenue per coupon is
+calculated.
+<br><br>
+```{r echo = FALSE, fig.width = 5, fig.height = 2.5}
+campaign_revenue %>% 
+  ggplot(aes(description, rev_per_coupon)) +
+  geom_col(fill = "#029587") +
+  ggtitle('Purchases where TypeC coupon was redeemed costed more') +
+  ylab("In USD") +
+  theme(plot.background = element_rect(fill = "#eeeeee"),
+        panel.background = element_rect(fill = "#eeeeee"),
+        axis.title.x = element_blank(),
+        axis.ticks.x = element_blank())
+```
+</center> </div>
+<br><br>
+
+<div class = "grey"><center>
+While campaigns increased the shoppers expenditure, there is not enough evidence
+to suggest that TypeA did it better.  
+There is also analysis showing that the average rate of purchase of households 
+that received only TypeA is the same as the average purchase of customers that 
+received only TypeBC - about one every eight days.
+<br><br>
+```{r echo = FALSE, fig.width = 5, fig.height = 2.5}
+hh_exp_inc_summary  %>% 
+  mutate(increase_num = promotion_applied / normal_cost) %>% 
+  ggplot(aes(households, increase_num)) +
+  geom_col(fill = "#029587") +
+  ggtitle('The increase was about the same') +
+  ylab("Basket cost increase") +
+  scale_y_continuous(limits = c(0,3)) +
+  theme(plot.background = element_rect(fill = "#eeeeee"),
+        panel.background = element_rect(fill = "#eeeeee"),
+        axis.title.x = element_blank(),
+        axis.ticks.x = element_blank())
+```
+</center> </div>
+<br><br>
+
+From the above conclusions, one might be inclined to think that personalised
+campaigns do not work. But what should not be overlooked is the fact that the
+dataset comprises of only a select set of households located over unknown
+geographical locations. Maybe a lack of competition could be causing the 
+households to make all their purchases at the same retailer. We do observe that 
+the purchase rate of households that received TypeA has remained stable over the 
+entire period. But whether or not there exists a cause and effect relationship 
+couldn't be answered.
+<br><br>
+
+One could easily argue that <i>for this retailer, for this set of households,
+under all the same suppositions,</i> a customer-centric approach is not necessary.
+That, as long as the retailer keeps running promotions, the growth will remain 
+steady. But the assumptions could change anytime, and recovering from a negative 
+dip in sales is an undesirable task.
+<br><br>
+
+### Campaigns work. But where do they work best?
+
+With the household demography and product data, we could predict who responded
+most to which product. A random forest model over the data could yield more
+interesting insights into individual household behaviour and what promotions
+have a higher chance of retaining the customer.
+
+<br><br>
+<a href="https://github.com/mr-hn/dataWranglingProject/blob/master/source.Rmd"target="_blank"><b>Click here</b></a> for source code.<br><br>
+
+<u><a href="https://linkedin.com/in/harish-morekonda"target="_blank">LinkedIn</a></u>
+
+<!-- Javascript for click to expand -->
+<script>
+var coll = document.getElementsByClassName("collapsibleHn");
+var i;
+
+for (i = 0; i < coll.length; i++) {
+  coll[i].addEventListener("click", function() {
+    this.classList.toggle("activeHn");
+    var content = this.nextElementSibling;
+    if (content.style.maxHeight){
+      content.style.maxHeight = null;
+    } else {
+      content.style.maxHeight = content.scrollHeight + "px";
+    } 
+  });
+}
+</script>
+<!-- End of Javascript -->
